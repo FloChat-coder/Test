@@ -9,19 +9,6 @@ export const Settings: React.FC = () => {
     const [activeSection, setActiveSection] = useState('account');
     const [showPassword, setShowPassword] = useState(false);
 
-    // AI Configuration State
-    const [aiConfig, setAiConfig] = useState({
-        provider: 'google',
-        model: 'gemini/gemini-2.5-flash',
-        api_key: '',
-        system_instruction: 'You are a helpful assistant.'
-    });
-    const [hasKey, setHasKey] = useState(false);
-    const [aiTesting, setAiTesting] = useState(false);
-    const [aiSaving, setAiSaving] = useState(false);
-    const [aiTestResult, setAiTestResult] = useState<{success: boolean, message: string} | null>(null);
-    const [aiSaveResult, setAiSaveResult] = useState<{success: boolean, message: string} | null>(null);
-
     useEffect(() => {
         const observer = new IntersectionObserver(
             (entries) => {
@@ -34,77 +21,14 @@ export const Settings: React.FC = () => {
             { rootMargin: '-20% 0px -60% 0px' }
         );
 
-        const sections = ['account', 'ai', 'bots', 'billing'];
+        const sections = ['account', 'bots', 'billing'];
         sections.forEach((id) => {
             const el = document.getElementById(id);
             if (el) observer.observe(el);
         });
 
-        fetchAiSettings();
-
         return () => observer.disconnect();
     }, []);
-
-    const fetchAiSettings = async () => {
-        try {
-            const res = await fetch('/api/ai/settings');
-            if (res.ok) {
-                const data = await res.json();
-                setAiConfig({
-                    provider: data.provider || 'google',
-                    model: data.model || 'gemini/gemini-2.5-flash',
-                    api_key: '', // Avoid putting real key here
-                    system_instruction: data.system_instruction || 'You are a helpful assistant.'
-                });
-                setHasKey(data.has_key);
-            }
-        } catch (err) {
-            console.error("Failed to fetch AI settings", err);
-        }
-    };
-
-    const handleTestConnection = async () => {
-        setAiTesting(true);
-        setAiTestResult(null);
-        try {
-            const res = await fetch('/api/ai/test', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(aiConfig)
-            });
-            const data = await res.json();
-            setAiTestResult({ success: data.success, message: data.message || data.error });
-        } catch (err: any) {
-            setAiTestResult({ success: false, message: err.message || 'Network error' });
-        } finally {
-            setAiTesting(false);
-        }
-    };
-
-    const handleSaveAiSettings = async () => {
-        setAiSaving(true);
-        setAiSaveResult(null);
-        try {
-            const res = await fetch('/api/ai/save', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(aiConfig)
-            });
-            const data = await res.json();
-            setAiSaveResult({ success: data.success || res.ok, message: data.message || data.error || 'Saved successfully' });
-            
-            if (data.success || res.ok) {
-                if (aiConfig.api_key) setHasKey(true);
-                setAiConfig({...aiConfig, api_key: ''}); // Clear the UI after save
-            }
-            
-            setTimeout(() => setAiSaveResult(null), 3000);
-        } catch (err: any) {
-            setAiSaveResult({ success: false, message: err.message || 'Network error' });
-        } finally {
-            setAiSaving(false);
-        }
-    };
 
     const handleCopy = () => {
         setCopiedSnippet(true);
@@ -121,55 +45,40 @@ export const Settings: React.FC = () => {
     return (
         <MainLayout title="Settings" showBreadcrumbs={true}>
             <div className="max-w-7xl mx-auto grid grid-cols-12 gap-8 relative pb-20">
-                
+
                 {/* Secondary Sidebar (Quick Nav) */}
                 <div className="col-span-12 md:col-span-3">
                     <div className="sticky top-[96px] flex flex-col gap-2">
                         <h2 className="font-heading-md text-heading-md text-text-primary mb-4 tracking-tight">Settings</h2>
-                        
-                        <button 
+
+                        <button
                             onClick={() => scrollToSection('account')}
-                            className={`px-4 py-2.5 rounded-lg transition-all duration-300 flex items-center gap-3 w-full text-left font-body-base ${
-                                activeSection === 'account' 
-                                    ? 'bg-primary/10 text-primary font-medium' 
+                            className={`px-4 py-2.5 rounded-lg transition-all duration-300 flex items-center gap-3 w-full text-left font-body-base ${activeSection === 'account'
+                                    ? 'bg-primary/10 text-primary font-medium'
                                     : 'text-text-muted hover:bg-surface-glass-hover hover:text-text-primary'
-                            }`}
+                                }`}
                         >
                             <User className="w-[20px] h-[20px]" />
                             Profile & Account
                         </button>
 
-                        <button 
-                            onClick={() => scrollToSection('ai')}
-                            className={`px-4 py-2.5 rounded-lg transition-all duration-300 flex items-center gap-3 w-full text-left font-body-base ${
-                                activeSection === 'ai' 
-                                    ? 'bg-primary/10 text-primary font-medium' 
-                                    : 'text-text-muted hover:bg-surface-glass-hover hover:text-text-primary'
-                            }`}
-                        >
-                            <Cpu className="w-[20px] h-[20px]" />
-                            AI Configuration
-                        </button>
-                        
-                        <button 
+                        <button
                             onClick={() => scrollToSection('bots')}
-                            className={`px-4 py-2.5 rounded-lg transition-all duration-300 flex items-center gap-3 w-full text-left font-body-base ${
-                                activeSection === 'bots' 
-                                    ? 'bg-primary/10 text-primary font-medium' 
+                            className={`px-4 py-2.5 rounded-lg transition-all duration-300 flex items-center gap-3 w-full text-left font-body-base ${activeSection === 'bots'
+                                    ? 'bg-primary/10 text-primary font-medium'
                                     : 'text-text-muted hover:bg-surface-glass-hover hover:text-text-primary'
-                            }`}
+                                }`}
                         >
                             <Bot className="w-[20px] h-[20px]" />
                             Bot & Widget Management
                         </button>
-                        
-                        <button 
+
+                        <button
                             onClick={() => scrollToSection('billing')}
-                            className={`px-4 py-2.5 rounded-lg transition-all duration-300 flex items-center gap-3 w-full text-left font-body-base ${
-                                activeSection === 'billing' 
-                                    ? 'bg-primary/10 text-primary font-medium' 
+                            className={`px-4 py-2.5 rounded-lg transition-all duration-300 flex items-center gap-3 w-full text-left font-body-base ${activeSection === 'billing'
+                                    ? 'bg-primary/10 text-primary font-medium'
                                     : 'text-text-muted hover:bg-surface-glass-hover hover:text-text-primary'
-                            }`}
+                                }`}
                         >
                             <CreditCard className="w-[20px] h-[20px]" />
                             Billing & Plans
@@ -179,24 +88,24 @@ export const Settings: React.FC = () => {
 
                 {/* Main Content Area */}
                 <div className="col-span-12 md:col-span-9 space-y-12">
-                    
+
                     {/* ACCOUNT PROFILE */}
                     <div id="account" className="bg-surface-glass backdrop-blur-xl border border-border-subtle rounded-xl p-8 shadow-lg scroll-mt-[96px]">
                         <h3 className="font-heading-md text-heading-md tracking-tight text-text-primary mb-6">Account Profile</h3>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
                             <div>
                                 <label className="block text-sm font-medium text-text-muted mb-2">Full Name</label>
-                                <input 
-                                    className="w-full bg-surface-container-low border border-border-subtle text-text-primary rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all duration-300 placeholder:text-text-muted/50" 
-                                    type="text" 
+                                <input
+                                    className="w-full bg-surface-container-low border border-border-subtle text-text-primary rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all duration-300 placeholder:text-text-muted/50"
+                                    type="text"
                                     defaultValue="Alex Operator"
                                 />
                             </div>
                             <div>
                                 <label className="block text-sm font-medium text-text-muted mb-2">Email Address</label>
-                                <input 
-                                    className="w-full bg-surface-container-low border border-border-subtle text-text-primary rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all duration-300 placeholder:text-text-muted/50" 
-                                    type="email" 
+                                <input
+                                    className="w-full bg-surface-container-low border border-border-subtle text-text-primary rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all duration-300 placeholder:text-text-muted/50"
+                                    type="email"
                                     defaultValue="alex@flochat.ai"
                                 />
                             </div>
@@ -206,12 +115,12 @@ export const Settings: React.FC = () => {
                                 <label className="block text-sm font-medium text-text-muted mb-2">Password</label>
                                 <div className="flex gap-4 items-center">
                                     <div className="relative flex-1">
-                                        <input 
-                                            className="w-full bg-surface-container-low border border-border-subtle text-text-primary rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all duration-300 placeholder:text-text-muted/50" 
+                                        <input
+                                            className="w-full bg-surface-container-low border border-border-subtle text-text-primary rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all duration-300 placeholder:text-text-muted/50"
                                             type={showPassword ? 'text' : 'password'}
                                             defaultValue="password123"
                                         />
-                                        <button 
+                                        <button
                                             type="button"
                                             onClick={() => setShowPassword(!showPassword)}
                                             className="absolute right-3 top-1/2 -translate-y-1/2 text-text-muted hover:text-text-primary transition-colors"
@@ -228,93 +137,6 @@ export const Settings: React.FC = () => {
                         </div>
                     </div>
 
-                    {/* AI CONFIGURATION */}
-                    <div id="ai" className="bg-surface-glass backdrop-blur-xl border border-border-subtle rounded-xl p-8 shadow-lg scroll-mt-[96px]">
-                        <div className="flex justify-between items-center mb-6">
-                            <h3 className="font-heading-md text-heading-md tracking-tight text-text-primary">AI Configuration</h3>
-                            <button 
-                                onClick={handleSaveAiSettings}
-                                disabled={aiSaving}
-                                className="bg-gradient-to-br from-indigo-500 to-violet-500 hover:opacity-90 text-white font-label-sm px-6 py-2.5 rounded-lg transition-all duration-300 shadow-indigo-500/20 shadow-lg flex items-center gap-2 disabled:opacity-50"
-                            >
-                                {aiSaving ? 'Saving...' : 'Save AI Settings'}
-                            </button>
-                        </div>
-
-                        {aiSaveResult && (
-                            <div className={`p-3 rounded-lg border mb-6 text-sm flex items-center gap-2 ${aiSaveResult.success ? 'bg-green-500/10 text-green-400 border-green-500/20' : 'bg-red-500/10 text-red-400 border-red-500/20'}`}>
-                                {aiSaveResult.success ? <CheckCircle2 className="w-4 h-4" /> : <AlertCircle className="w-4 h-4" />}
-                                {aiSaveResult.message}
-                            </div>
-                        )}
-
-                        <div className="space-y-6">
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                <div>
-                                    <label className="block text-sm font-medium text-text-muted mb-2">AI Provider</label>
-                                    <select 
-                                        value={aiConfig.provider}
-                                        onChange={(e) => setAiConfig({...aiConfig, provider: e.target.value})}
-                                        className="w-full bg-surface-container-low border border-border-subtle text-text-primary rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all duration-300"
-                                    >
-                                        <option value="google">Google (Gemini)</option>
-                                        <option value="openai">OpenAI</option>
-                                        <option value="anthropic">Anthropic</option>
-                                    </select>
-                                </div>
-                                <div>
-                                    <label className="block text-sm font-medium text-text-muted mb-2">Model</label>
-                                    <input 
-                                        type="text"
-                                        value={aiConfig.model}
-                                        onChange={(e) => setAiConfig({...aiConfig, model: e.target.value})}
-                                        placeholder="e.g. gemini/gemini-2.5-flash"
-                                        className="w-full bg-surface-container-low border border-border-subtle text-text-primary rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all duration-300"
-                                    />
-                                </div>
-                            </div>
-
-                            <div>
-                                <label className="block text-sm font-medium text-text-muted mb-2">
-                                    API Key {hasKey && <span className="text-emerald-400 text-xs ml-2">(Key is configured)</span>}
-                                </label>
-                                <div className="flex gap-4 items-center">
-                                    <input 
-                                        type="password"
-                                        value={aiConfig.api_key}
-                                        onChange={(e) => setAiConfig({...aiConfig, api_key: e.target.value})}
-                                        placeholder={hasKey ? "Leave blank to keep existing key" : "Enter API Key"}
-                                        className="flex-1 bg-surface-container-low border border-border-subtle text-text-primary rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all duration-300 placeholder:text-text-muted/50"
-                                    />
-                                    <button 
-                                        onClick={handleTestConnection}
-                                        disabled={aiTesting || (!aiConfig.api_key && !hasKey)}
-                                        className="border border-border-subtle text-text-primary px-6 py-3 rounded-lg font-label-sm hover:bg-surface-glass-hover transition-all duration-300 whitespace-nowrap disabled:opacity-50"
-                                    >
-                                        {aiTesting ? 'Testing...' : 'Test Connection'}
-                                    </button>
-                                </div>
-                                {aiTestResult && (
-                                    <div className={`mt-3 p-3 rounded-lg border text-sm flex items-center gap-2 ${aiTestResult.success ? 'bg-green-500/10 text-green-400 border-green-500/20' : 'bg-red-500/10 text-red-400 border-red-500/20'}`}>
-                                        {aiTestResult.success ? <CheckCircle2 className="w-4 h-4" /> : <AlertCircle className="w-4 h-4" />}
-                                        {aiTestResult.message}
-                                    </div>
-                                )}
-                            </div>
-
-                            <div>
-                                <label className="block text-sm font-medium text-text-muted mb-2">System Instruction (Prompt)</label>
-                                <textarea 
-                                    value={aiConfig.system_instruction}
-                                    onChange={(e) => setAiConfig({...aiConfig, system_instruction: e.target.value})}
-                                    rows={4}
-                                    placeholder="You are a helpful assistant..."
-                                    className="w-full bg-surface-container-low border border-border-subtle text-text-primary rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all duration-300 placeholder:text-text-muted/50 resize-none"
-                                />
-                            </div>
-                        </div>
-                    </div>
-
                     {/* BOT AND WIDGET MANAGEMENT */}
                     <div id="bots" className="bg-surface-glass backdrop-blur-xl border border-border-subtle rounded-xl p-8 shadow-lg scroll-mt-[96px]">
                         <div className="flex justify-between items-center mb-6">
@@ -327,14 +149,13 @@ export const Settings: React.FC = () => {
                         {/* Bot List */}
                         <div className="flex gap-4 overflow-x-auto pb-6 mb-6 border-b border-border-subtle scrollbar-none">
                             {chatbots.map((bot, idx) => (
-                                <div 
-                                    key={idx} 
+                                <div
+                                    key={idx}
                                     onClick={() => setSelectedChatbot(bot)}
-                                    className={`min-w-[240px] border rounded-xl p-5 cursor-pointer transition-all duration-300 shadow-lg relative overflow-hidden group ${
-                                    bot === selectedChatbot 
-                                        ? 'bg-white/[0.08] border-primary/30 shadow-indigo-500/10 hover:-translate-y-1' 
-                                        : 'bg-surface-glass border-border-subtle hover:-translate-y-1 hover:bg-surface-glass-hover'
-                                }`}>
+                                    className={`min-w-[240px] border rounded-xl p-5 cursor-pointer transition-all duration-300 shadow-lg relative overflow-hidden group ${bot === selectedChatbot
+                                            ? 'bg-white/[0.08] border-primary/30 shadow-indigo-500/10 hover:-translate-y-1'
+                                            : 'bg-surface-glass border-border-subtle hover:-translate-y-1 hover:bg-surface-glass-hover'
+                                        }`}>
                                     {bot === selectedChatbot && <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-br from-indigo-500 to-violet-500"></div>}
                                     <div className="flex justify-between items-start mb-4">
                                         <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${bot === selectedChatbot ? 'bg-primary/20 text-primary' : 'bg-surface-container-high text-text-muted group-hover:text-primary transition-colors'}`}>
@@ -362,14 +183,14 @@ export const Settings: React.FC = () => {
                         {/* Widget Config Form */}
                         <div>
                             <h4 className="font-label-sm text-sm tracking-tight text-on-surface mb-6">Editing: <span className="text-primary">{selectedChatbot}</span> Widget Appearance</h4>
-                            
+
                             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
                                 <div className="space-y-6">
                                     <div>
                                         <label className="block text-sm font-medium text-text-muted mb-2">Rename Bot</label>
-                                        <input 
-                                            className="w-full bg-surface-container-low border border-border-subtle text-text-primary rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-primary transition-all duration-300" 
-                                            type="text" 
+                                        <input
+                                            className="w-full bg-surface-container-low border border-border-subtle text-text-primary rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-primary transition-all duration-300"
+                                            type="text"
                                             defaultValue={selectedChatbot}
                                         />
                                     </div>
@@ -396,7 +217,7 @@ export const Settings: React.FC = () => {
                                     <label className="block text-sm font-medium text-text-muted mb-2">Embed Code</label>
                                     <div className="relative group">
                                         <pre className="bg-surface-container-highest p-4 rounded-xl border border-border-subtle text-xs text-text-muted overflow-x-auto h-48">
-<code>{`<script>
+                                            <code>{`<script>
   window.floChatConfig = {
     botId: "bot_123xyz",
     theme: "indigo",
@@ -405,7 +226,7 @@ export const Settings: React.FC = () => {
 </script>
 <script src="https://cdn.flochat.ai/widget.js" async></script>`}</code>
                                         </pre>
-                                        <button 
+                                        <button
                                             onClick={handleCopy}
                                             className="absolute top-3 right-3 p-2 bg-surface-glass-hover rounded-lg text-text-primary transition-all duration-300 shadow-sm"
                                         >
@@ -433,7 +254,7 @@ export const Settings: React.FC = () => {
                     {/* BILLING AND PLANS */}
                     <div id="billing" className="bg-surface-glass backdrop-blur-xl border border-border-subtle rounded-xl p-8 shadow-lg scroll-mt-[96px]">
                         <h3 className="font-heading-md text-heading-md tracking-tight text-text-primary mb-6">Billing & Plans</h3>
-                        
+
                         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
                             <div className="bg-surface-container-low border border-border-subtle rounded-xl p-6">
                                 <h4 className="font-label-sm text-sm text-text-muted tracking-tight mb-4 uppercase">Current Plan</h4>
@@ -487,7 +308,7 @@ export const Settings: React.FC = () => {
                                     <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-4 h-4 text-text-muted pointer-events-none" />
                                 </div>
                             </div>
-                            
+
                             <div className="overflow-x-auto border border-border-subtle rounded-xl">
                                 <table className="w-full text-left border-collapse">
                                     <thead>
@@ -527,7 +348,7 @@ export const Settings: React.FC = () => {
                         </div>
 
                     </div>
-                    
+
                 </div>
             </div>
         </MainLayout>

@@ -11,6 +11,7 @@ import { Chats } from './pages/Chats';
 import { Leads } from './pages/Leads';
 import { Analytics } from './pages/Analytics';
 import { Settings } from './pages/Settings';
+import { AISettings } from './pages/AISettings';
 import { ChatbotProvider } from './context/ChatbotContext';
 
 export default function App() {
@@ -24,6 +25,7 @@ export default function App() {
           <Route path="/chats" element={<Chats />} />
           <Route path="/leads" element={<Leads />} />
           <Route path="/settings" element={<Settings />} />
+          <Route path="/ai-settings" element={<AISettings />} />
         </Routes>
       </Router>
     </ChatbotProvider>
