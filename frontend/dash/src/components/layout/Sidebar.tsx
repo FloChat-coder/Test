@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { NavLink } from 'react-router-dom';
-import { Bot, Plus, LayoutDashboard, MessageSquare, Puzzle, Users, Activity, ChevronDown } from 'lucide-react';
+import { Bot, Plus, LayoutDashboard, MessageSquare, Puzzle, Users, Activity, ChevronDown, Settings as SettingsIcon, Cpu } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useChatbot } from '../../context/ChatbotContext';
 
@@ -10,6 +10,8 @@ const NAV_ITEMS = [
   { icon: MessageSquare, label: 'Chats', path: '/chats' },
   { icon: Puzzle, label: 'Integrations', path: '/integrations' },
   { icon: Users, label: 'Leads', path: '/leads' },
+  { icon: SettingsIcon, label: 'Settings', path: '/settings' },
+  { icon: Cpu, label: 'AI Settings', path: '/ai-settings' },
 ];
 
 export interface SidebarProps {
