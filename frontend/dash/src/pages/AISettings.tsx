@@ -5,43 +5,125 @@ import { useChatbot } from '../context/ChatbotContext';
 
 export const AISettings: React.FC = () => {
     const { selectedChatbot } = useChatbot();
-    const [validationState, setValidationState] = useState<'idle' | 'validated' | 'failed'>('idle');
+    
+    const [aiConfig, setAiConfig] = useState({
+        provider: 'gemini',
+        model: 'gemini/gemini-2.5-flash',
+        api_key: '',
+        system_instruction: `You are a helpful AI assistant for ${selectedChatbot}.`
+    });
+    const [hasKey, setHasKey] = useState(false);
+    
+    const [aiTesting, setAiTesting] = useState(false);
+    const [aiSaving, setAiSaving] = useState(false);
+    const [aiTestResult, setAiTestResult] = useState<{success: boolean, message: string} | null>(null);
+    const [aiSaveResult, setAiSaveResult] = useState<{success: boolean, message: string} | null>(null);
+    const [chatLoading, setChatLoading] = useState(false);
+
     const [messages, setMessages] = useState([
-        { role: 'bot', text: `Hello! I'm your ${selectedChatbot} assistant. How can I help you today?` },
-        { role: 'user', text: "Can you help me?" }
+        { role: 'bot', text: `Hello! I'm your ${selectedChatbot} assistant. How can I help you today?` }
     ]);
     const [input, setInput] = useState('');
-    const [systemPrompt, setSystemPrompt] = useState(`You are a helpful AI assistant for ${selectedChatbot}...`);
-    const [apiKey, setApiKey] = useState('************************');
 
-    // Reset settings when chatbot changes
     useEffect(() => {
-        setMessages([
-            { role: 'bot', text: `Hello! I'm your ${selectedChatbot} assistant. How can I help you today?` },
-            { role: 'user', text: "Can you help me?" }
-        ]);
-        setSystemPrompt(`You are a helpful AI assistant for ${selectedChatbot}. Be professional and concise.`);
-        setValidationState('idle');
+        const fetchAiSettings = async () => {
+            try {
+                const res = await fetch('/api/ai/settings');
+                if (res.ok) {
+                    const data = await res.json();
+                    setAiConfig({
+                        provider: data.provider || 'gemini',
+                        model: data.model || 'gemini/gemini-2.5-flash',
+                        api_key: '', // Avoid putting real key here
+                        system_instruction: data.system_instruction || `You are a helpful AI assistant for ${selectedChatbot}.`
+                    });
+                    setHasKey(data.has_key);
+                }
+            } catch (err) {
+                console.error("Failed to fetch AI settings", err);
+            }
+        };
+        fetchAiSettings();
     }, [selectedChatbot]);
 
-    const handleValidate = () => {
-        // Simulate validation
-        setValidationState('validated');
+    const handleValidate = async () => {
+        setAiTesting(true);
+        setAiTestResult(null);
+        try {
+            const res = await fetch('/api/ai/test', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(aiConfig)
+            });
+            const data = await res.json();
+            setAiTestResult({ success: data.success, message: data.message || data.error });
+            setTimeout(() => setAiTestResult(null), 3000);
+        } catch (err: any) {
+            setAiTestResult({ success: false, message: err.message || 'Network error' });
+        } finally {
+            setAiTesting(false);
+        }
+    };
+
+    const handleSave = async () => {
+        setAiSaving(true);
+        setAiSaveResult(null);
+        try {
+            const res = await fetch('/api/ai/save', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(aiConfig)
+            });
+            const data = await res.json();
+            setAiSaveResult({ success: data.success || res.ok, message: data.message || data.error || 'Saved successfully' });
+            
+            if (data.success || res.ok) {
+                if (aiConfig.api_key) setHasKey(true);
+                setAiConfig({...aiConfig, api_key: ''}); // Clear the UI after save
+            }
+            
+            setTimeout(() => setAiSaveResult(null), 3000);
+        } catch (err: any) {
+            setAiSaveResult({ success: false, message: err.message || 'Network error' });
+        } finally {
+            setAiSaving(false);
+        }
     };
 
     const handleClearChat = () => {
         setMessages([{ role: 'bot', text: `Hello! I'm your ${selectedChatbot} assistant. How can I help you today?` }]);
     };
 
-    const handleSendMessage = () => {
-        if (!input.trim()) return;
-        setMessages(prev => [...prev, { role: 'user', text: input }]);
-        setInput('');
+    const handleSendMessage = async () => {
+        if (!input.trim() || chatLoading) return;
         
-        // Simulate bot reply
-        setTimeout(() => {
-            setMessages(prev => [...prev, { role: 'bot', text: "I'm a preview bot. I can't actually respond to real queries right now, but your setup looks great!" }]);
-        }, 1000);
+        const userMsg = input.trim();
+        setMessages(prev => [...prev, { role: 'user', text: userMsg }]);
+        setInput('');
+        setChatLoading(true);
+        
+        try {
+            const res = await fetch('/api/chat', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    message: userMsg,
+                    session_id: 'preview_session_123',
+                    // client_id is now handled automatically by the backend via session fallback
+                })
+            });
+            const data = await res.json();
+            
+            if (data.handoff) {
+                setMessages(prev => [...prev, { role: 'bot', text: "[Human Handoff Requested] " + (data.reply || "") }]);
+            } else {
+                setMessages(prev => [...prev, { role: 'bot', text: data.reply || "No response." }]);
+            }
+        } catch (err) {
+            setMessages(prev => [...prev, { role: 'bot', text: "Error: Could not reach the server." }]);
+        } finally {
+            setChatLoading(false);
+        }
     };
 
     return (
@@ -65,7 +147,11 @@ export const AISettings: React.FC = () => {
                                 <div>
                                     <label className="block font-label-sm text-sm text-text-muted mb-2">AI Provider</label>
                                     <div className="relative">
-                                        <select className="w-full bg-surface-container-low border border-border-subtle rounded-lg px-4 py-3 appearance-none focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all duration-300 font-body-base text-body-base text-text-primary [color-scheme:dark]">
+                                        <select 
+                                            value={aiConfig.provider}
+                                            onChange={(e) => setAiConfig({...aiConfig, provider: e.target.value})}
+                                            className="w-full bg-surface-container-low border border-border-subtle rounded-lg px-4 py-3 appearance-none focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all duration-300 font-body-base text-body-base text-text-primary [color-scheme:dark]"
+                                        >
                                             <option value="gemini">Gemini</option>
                                             <option value="claude">Claude</option>
                                             <option value="openai">OpenAI</option>
@@ -77,9 +163,15 @@ export const AISettings: React.FC = () => {
                                 <div>
                                     <label className="block font-label-sm text-sm text-text-muted mb-2">Model Selection</label>
                                     <div className="relative">
-                                        <select className="w-full bg-surface-container-low border border-border-subtle rounded-lg px-4 py-3 appearance-none focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all duration-300 font-body-base text-body-base text-text-primary [color-scheme:dark]">
-                                            <option value="gemini-1.5-pro">Gemini 1.5 Pro</option>
-                                            <option value="gemini-1.5-flash">Gemini 1.5 Flash</option>
+                                        <select 
+                                            value={aiConfig.model}
+                                            onChange={(e) => setAiConfig({...aiConfig, model: e.target.value})}
+                                            className="w-full bg-surface-container-low border border-border-subtle rounded-lg px-4 py-3 appearance-none focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all duration-300 font-body-base text-body-base text-text-primary [color-scheme:dark]"
+                                        >
+                                            <option value="gemini/gemini-2.5-flash">Gemini 2.5 Flash</option>
+                                            <option value="gemini/gemini-2.5-pro">Gemini 2.5 Pro</option>
+                                            <option value="openai/gpt-4o">GPT-4o</option>
+                                            <option value="anthropic/claude-3-5-sonnet-20241022">Claude 3.5 Sonnet</option>
                                         </select>
                                         <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 text-text-muted pointer-events-none w-5 h-5" />
                                     </div>
@@ -88,15 +180,17 @@ export const AISettings: React.FC = () => {
 
                             <div>
                                 <div className="flex justify-between items-center mb-2">
-                                    <label className="block font-label-sm text-sm text-text-muted">API Key</label>
+                                    <label className="block font-label-sm text-sm text-text-muted">
+                                        API Key {hasKey && <span className="text-emerald-400 text-xs ml-2">(Key is configured)</span>}
+                                    </label>
                                     <button type="button" className="font-label-sm text-sm text-primary hover:text-primary-fixed transition-colors duration-300">Get API Key</button>
                                 </div>
                                 <input 
                                     className="w-full bg-surface-container-low border border-border-subtle rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all duration-300 font-body-base text-body-base text-text-primary placeholder:text-text-muted/50" 
-                                    placeholder="Enter your provider API key" 
+                                    placeholder={hasKey ? "Leave blank to keep existing key" : "Enter your provider API key"}
                                     type="password" 
-                                    value={apiKey}
-                                    onChange={(e) => setApiKey(e.target.value)}
+                                    value={aiConfig.api_key}
+                                    onChange={(e) => setAiConfig({...aiConfig, api_key: e.target.value})}
                                 />
                             </div>
 
@@ -105,33 +199,47 @@ export const AISettings: React.FC = () => {
                                 <textarea 
                                     className="flex-1 min-h-[150px] w-full bg-surface-container-low border border-border-subtle rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all duration-300 font-body-base text-body-base text-text-primary placeholder:text-text-muted/50 resize-none" 
                                     placeholder="You are a helpful AI assistant..."
-                                    value={systemPrompt}
-                                    onChange={(e) => setSystemPrompt(e.target.value)}
+                                    value={aiConfig.system_instruction}
+                                    onChange={(e) => setAiConfig({...aiConfig, system_instruction: e.target.value})}
                                 />
                             </div>
 
-                            {/* Validation Footer */}
-                            <div className="flex justify-end items-center gap-4 pt-6 border-t border-border-subtle mt-auto">
-                                {validationState === 'validated' && (
-                                    <div className="flex items-center gap-2 bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-3 py-1.5 rounded-full">
-                                        <CheckCircle2 className="w-4 h-4" />
-                                        <span className="font-label-sm text-sm">Validated</span>
-                                    </div>
-                                )}
-                                {validationState === 'failed' && (
-                                    <div className="flex items-center gap-2 bg-rose-500/10 text-rose-400 border border-rose-500/20 px-3 py-1.5 rounded-full">
-                                        <XCircle className="w-4 h-4" />
-                                        <span className="font-label-sm text-sm">Not Validated</span>
-                                    </div>
-                                )}
-                                <button 
-                                    type="button"
-                                    onClick={handleValidate}
-                                    className="bg-gradient-to-br from-indigo-500 to-violet-500 hover:opacity-90 text-white font-label-sm text-sm px-6 py-2.5 rounded-lg transition-all duration-300 shadow-indigo-500/20 shadow-lg flex items-center gap-2 -translate-y-0.5 hover:-translate-y-1"
-                                >
-                                    <RefreshCw className="w-[18px] h-[18px]" />
-                                    Validate Connection
-                                </button>
+                            {/* Validation & Save Footer */}
+                            <div className="flex justify-between items-center pt-6 border-t border-border-subtle mt-auto">
+                                <div className="flex gap-2">
+                                    {aiTestResult && (
+                                        <div className={`flex items-center gap-2 px-3 py-1.5 rounded-full ${aiTestResult.success ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'bg-rose-500/10 text-rose-400 border border-rose-500/20'}`}>
+                                            {aiTestResult.success ? <CheckCircle2 className="w-4 h-4" /> : <XCircle className="w-4 h-4" />}
+                                            <span className="font-label-sm text-sm">{aiTestResult.success ? 'Validated' : 'Failed'}</span>
+                                        </div>
+                                    )}
+                                    {aiSaveResult && (
+                                        <div className={`flex items-center gap-2 px-3 py-1.5 rounded-full ${aiSaveResult.success ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'bg-rose-500/10 text-rose-400 border border-rose-500/20'}`}>
+                                            {aiSaveResult.success ? <CheckCircle2 className="w-4 h-4" /> : <XCircle className="w-4 h-4" />}
+                                            <span className="font-label-sm text-sm">{aiSaveResult.success ? 'Saved' : 'Save Failed'}</span>
+                                        </div>
+                                    )}
+                                </div>
+                                
+                                <div className="flex gap-3">
+                                    <button 
+                                        type="button"
+                                        onClick={handleValidate}
+                                        disabled={aiTesting || (!aiConfig.api_key && !hasKey)}
+                                        className="border border-border-subtle hover:bg-surface-glass-hover text-text-primary font-label-sm text-sm px-6 py-2.5 rounded-lg transition-all duration-300 shadow-sm flex items-center gap-2 disabled:opacity-50"
+                                    >
+                                        <RefreshCw className={`w-[18px] h-[18px] ${aiTesting ? 'animate-spin' : ''}`} />
+                                        {aiTesting ? 'Testing...' : 'Test Connection'}
+                                    </button>
+                                    <button 
+                                        type="button"
+                                        onClick={handleSave}
+                                        disabled={aiSaving}
+                                        className="bg-gradient-to-br from-indigo-500 to-violet-500 hover:opacity-90 text-white font-label-sm text-sm px-6 py-2.5 rounded-lg transition-all duration-300 shadow-indigo-500/20 shadow-lg flex items-center gap-2 -translate-y-0.5 hover:-translate-y-1 disabled:opacity-50 disabled:-translate-y-0"
+                                    >
+                                        {aiSaving ? 'Saving...' : 'Save Settings'}
+                                    </button>
+                                </div>
                             </div>
                         </form>
                     </div>
