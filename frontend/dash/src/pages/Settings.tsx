@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { MainLayout } from '../components/layout/MainLayout';
-import { User, Bot, CreditCard, ChevronDown, CheckCircle2, Copy, Eye, EyeOff, Plus } from 'lucide-react';
+import { User, Bot, CreditCard, ChevronDown, CheckCircle2, Copy, Eye, EyeOff, Plus, Cpu, AlertCircle } from 'lucide-react';
 import { useChatbot } from '../context/ChatbotContext';
 
 export const Settings: React.FC = () => {
@@ -8,6 +8,19 @@ export const Settings: React.FC = () => {
     const [copiedSnippet, setCopiedSnippet] = useState(false);
     const [activeSection, setActiveSection] = useState('account');
     const [showPassword, setShowPassword] = useState(false);
+
+    // AI Configuration State
+    const [aiConfig, setAiConfig] = useState({
+        provider: 'google',
+        model: 'gemini/gemini-2.5-flash',
+        api_key: '',
+        system_instruction: 'You are a helpful assistant.'
+    });
+    const [hasKey, setHasKey] = useState(false);
+    const [aiTesting, setAiTesting] = useState(false);
+    const [aiSaving, setAiSaving] = useState(false);
+    const [aiTestResult, setAiTestResult] = useState<{success: boolean, message: string} | null>(null);
+    const [aiSaveResult, setAiSaveResult] = useState<{success: boolean, message: string} | null>(null);
 
     useEffect(() => {
         const observer = new IntersectionObserver(
@@ -21,14 +34,77 @@ export const Settings: React.FC = () => {
             { rootMargin: '-20% 0px -60% 0px' }
         );
 
-        const sections = ['account', 'bots', 'billing'];
+        const sections = ['account', 'ai', 'bots', 'billing'];
         sections.forEach((id) => {
             const el = document.getElementById(id);
             if (el) observer.observe(el);
         });
 
+        fetchAiSettings();
+
         return () => observer.disconnect();
     }, []);
+
+    const fetchAiSettings = async () => {
+        try {
+            const res = await fetch('/api/ai/settings');
+            if (res.ok) {
+                const data = await res.json();
+                setAiConfig({
+                    provider: data.provider || 'google',
+                    model: data.model || 'gemini/gemini-2.5-flash',
+                    api_key: '', // Avoid putting real key here
+                    system_instruction: data.system_instruction || 'You are a helpful assistant.'
+                });
+                setHasKey(data.has_key);
+            }
+        } catch (err) {
+            console.error("Failed to fetch AI settings", err);
+        }
+    };
+
+    const handleTestConnection = async () => {
+        setAiTesting(true);
+        setAiTestResult(null);
+        try {
+            const res = await fetch('/api/ai/test', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(aiConfig)
+            });
+            const data = await res.json();
+            setAiTestResult({ success: data.success, message: data.message || data.error });
+        } catch (err: any) {
+            setAiTestResult({ success: false, message: err.message || 'Network error' });
+        } finally {
+            setAiTesting(false);
+        }
+    };
+
+    const handleSaveAiSettings = async () => {
+        setAiSaving(true);
+        setAiSaveResult(null);
+        try {
+            const res = await fetch('/api/ai/save', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(aiConfig)
+            });
+            const data = await res.json();
+            setAiSaveResult({ success: data.success || res.ok, message: data.message || data.error || 'Saved successfully' });
+            
+            if (data.success || res.ok) {
+                if (aiConfig.api_key) setHasKey(true);
+                setAiConfig({...aiConfig, api_key: ''}); // Clear the UI after save
+            }
+            
+            setTimeout(() => setAiSaveResult(null), 3000);
+        } catch (err: any) {
+            setAiSaveResult({ success: false, message: err.message || 'Network error' });
+        } finally {
+            setAiSaving(false);
+        }
+    };
 
     const handleCopy = () => {
         setCopiedSnippet(true);
@@ -61,6 +137,18 @@ export const Settings: React.FC = () => {
                         >
                             <User className="w-[20px] h-[20px]" />
                             Profile & Account
+                        </button>
+
+                        <button 
+                            onClick={() => scrollToSection('ai')}
+                            className={`px-4 py-2.5 rounded-lg transition-all duration-300 flex items-center gap-3 w-full text-left font-body-base ${
+                                activeSection === 'ai' 
+                                    ? 'bg-primary/10 text-primary font-medium' 
+                                    : 'text-text-muted hover:bg-surface-glass-hover hover:text-text-primary'
+                            }`}
+                        >
+                            <Cpu className="w-[20px] h-[20px]" />
+                            AI Configuration
                         </button>
                         
                         <button 
@@ -137,6 +225,93 @@ export const Settings: React.FC = () => {
                         </div>
                         <div className="flex justify-end pt-4 border-t border-border-subtle">
                             <button className="bg-gradient-to-br from-indigo-500 to-violet-500 hover:opacity-90 text-white font-label-sm px-6 py-2.5 rounded-lg transition-all duration-300 shadow-indigo-500/20 shadow-lg">Save Account Changes</button>
+                        </div>
+                    </div>
+
+                    {/* AI CONFIGURATION */}
+                    <div id="ai" className="bg-surface-glass backdrop-blur-xl border border-border-subtle rounded-xl p-8 shadow-lg scroll-mt-[96px]">
+                        <div className="flex justify-between items-center mb-6">
+                            <h3 className="font-heading-md text-heading-md tracking-tight text-text-primary">AI Configuration</h3>
+                            <button 
+                                onClick={handleSaveAiSettings}
+                                disabled={aiSaving}
+                                className="bg-gradient-to-br from-indigo-500 to-violet-500 hover:opacity-90 text-white font-label-sm px-6 py-2.5 rounded-lg transition-all duration-300 shadow-indigo-500/20 shadow-lg flex items-center gap-2 disabled:opacity-50"
+                            >
+                                {aiSaving ? 'Saving...' : 'Save AI Settings'}
+                            </button>
+                        </div>
+
+                        {aiSaveResult && (
+                            <div className={`p-3 rounded-lg border mb-6 text-sm flex items-center gap-2 ${aiSaveResult.success ? 'bg-green-500/10 text-green-400 border-green-500/20' : 'bg-red-500/10 text-red-400 border-red-500/20'}`}>
+                                {aiSaveResult.success ? <CheckCircle2 className="w-4 h-4" /> : <AlertCircle className="w-4 h-4" />}
+                                {aiSaveResult.message}
+                            </div>
+                        )}
+
+                        <div className="space-y-6">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <div>
+                                    <label className="block text-sm font-medium text-text-muted mb-2">AI Provider</label>
+                                    <select 
+                                        value={aiConfig.provider}
+                                        onChange={(e) => setAiConfig({...aiConfig, provider: e.target.value})}
+                                        className="w-full bg-surface-container-low border border-border-subtle text-text-primary rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all duration-300"
+                                    >
+                                        <option value="google">Google (Gemini)</option>
+                                        <option value="openai">OpenAI</option>
+                                        <option value="anthropic">Anthropic</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-text-muted mb-2">Model</label>
+                                    <input 
+                                        type="text"
+                                        value={aiConfig.model}
+                                        onChange={(e) => setAiConfig({...aiConfig, model: e.target.value})}
+                                        placeholder="e.g. gemini/gemini-2.5-flash"
+                                        className="w-full bg-surface-container-low border border-border-subtle text-text-primary rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all duration-300"
+                                    />
+                                </div>
+                            </div>
+
+                            <div>
+                                <label className="block text-sm font-medium text-text-muted mb-2">
+                                    API Key {hasKey && <span className="text-emerald-400 text-xs ml-2">(Key is configured)</span>}
+                                </label>
+                                <div className="flex gap-4 items-center">
+                                    <input 
+                                        type="password"
+                                        value={aiConfig.api_key}
+                                        onChange={(e) => setAiConfig({...aiConfig, api_key: e.target.value})}
+                                        placeholder={hasKey ? "Leave blank to keep existing key" : "Enter API Key"}
+                                        className="flex-1 bg-surface-container-low border border-border-subtle text-text-primary rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all duration-300 placeholder:text-text-muted/50"
+                                    />
+                                    <button 
+                                        onClick={handleTestConnection}
+                                        disabled={aiTesting || (!aiConfig.api_key && !hasKey)}
+                                        className="border border-border-subtle text-text-primary px-6 py-3 rounded-lg font-label-sm hover:bg-surface-glass-hover transition-all duration-300 whitespace-nowrap disabled:opacity-50"
+                                    >
+                                        {aiTesting ? 'Testing...' : 'Test Connection'}
+                                    </button>
+                                </div>
+                                {aiTestResult && (
+                                    <div className={`mt-3 p-3 rounded-lg border text-sm flex items-center gap-2 ${aiTestResult.success ? 'bg-green-500/10 text-green-400 border-green-500/20' : 'bg-red-500/10 text-red-400 border-red-500/20'}`}>
+                                        {aiTestResult.success ? <CheckCircle2 className="w-4 h-4" /> : <AlertCircle className="w-4 h-4" />}
+                                        {aiTestResult.message}
+                                    </div>
+                                )}
+                            </div>
+
+                            <div>
+                                <label className="block text-sm font-medium text-text-muted mb-2">System Instruction (Prompt)</label>
+                                <textarea 
+                                    value={aiConfig.system_instruction}
+                                    onChange={(e) => setAiConfig({...aiConfig, system_instruction: e.target.value})}
+                                    rows={4}
+                                    placeholder="You are a helpful assistant..."
+                                    className="w-full bg-surface-container-low border border-border-subtle text-text-primary rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all duration-300 placeholder:text-text-muted/50 resize-none"
+                                />
+                            </div>
                         </div>
                     </div>
 
