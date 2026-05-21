@@ -22,7 +22,14 @@ def create_app():
     
     app = Flask(__name__, static_folder=None)
     app.secret_key = os.getenv("FLASK_SECRET_KEY", "dev_secret_key_change_in_prod")
-    CORS(app)
+
+    # Session cookie hardening for production
+    app.config['SESSION_COOKIE_HTTPONLY'] = True
+    app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
+    if os.getenv('FLASK_ENV') == 'production':
+        app.config['SESSION_COOKIE_SECURE'] = True
+
+    CORS(app, supports_credentials=True)
 
     # Allow OAuth over HTTP (Render proxy handles HTTPS)
     os.environ['OAUTHLIB_INSECURE_TRANSPORT'] = '1'

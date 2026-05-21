@@ -4,6 +4,7 @@ import { AnalyticsFilters } from '../components/analytics/AnalyticsFilters';
 import { AnalyticsKPIs } from '../components/analytics/AnalyticsKPIs';
 import { VolumeChart } from '../components/analytics/VolumeChart';
 import { SecondaryInsights } from '../components/analytics/SecondaryInsights';
+import { apiFetch } from '../utils/api';
 
 export const Analytics: React.FC = () => {
   const [activeMetrics, setActiveMetrics] = useState(['messages', 'tokens']);
@@ -38,7 +39,7 @@ export const Analytics: React.FC = () => {
     const fetchAnalytics = async () => {
       setLoading(true);
       try {
-        const resMetrics = await fetch('/api/analytics/metrics');
+        const resMetrics = await apiFetch('/api/analytics/metrics');
         if (resMetrics.ok) {
           const data = await resMetrics.json();
           setMetrics(data);
@@ -48,7 +49,7 @@ export const Analytics: React.FC = () => {
         if (daysCount > 30) period = 'month';
         if (daysCount > 365) period = 'year';
         
-        const resTs = await fetch(`/api/analytics/timeseries?period=${period}`);
+        const resTs = await apiFetch(`/api/analytics/timeseries?period=${period}`);
         if (resTs.ok) {
           const tsData = await resTs.json();
           setTimeseries(tsData);

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { AlertTriangle, ChevronLeft, ChevronRight, CheckCircle2, AlertCircle } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
+import { apiFetch, apiJson } from '../../utils/api';
 
 interface HandoffQueueItem {
   id: number | string;
@@ -28,7 +29,7 @@ export const HumanHandoff: React.FC = () => {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch('/api/handoff/inbox');
+      const res = await apiFetch('/api/handoff/inbox');
       if (!res.ok) throw new Error('Failed to fetch handoff queue');
       const data = await res.json();
       setQueue(data);
@@ -69,13 +70,9 @@ export const HumanHandoff: React.FC = () => {
     setSuccess(null);
     
     try {
-      const res = await fetch('/api/handoff/resolve', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
+      const res = await apiJson('/api/handoff/resolve', 'POST', {
           cluster_id: queue[currentIndex].id,
           answer: answer
-        })
       });
       
       const data = await res.json();
