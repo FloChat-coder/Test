@@ -19,7 +19,7 @@ def chat():
     if not data:
         return jsonify({"reply": "Error: No data sent"}), 400
 
-    client_id = data.get('client_id')
+    client_id = data.get('client_id') or session.get('client_id')
     user_message = data.get('message')
     session_id = data.get('session_id')
     temp_context = data.get('temp_context')

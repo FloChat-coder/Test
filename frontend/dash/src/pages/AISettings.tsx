@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { MainLayout } from '../components/layout/MainLayout';
 import { ChevronDown, CheckCircle2, XCircle, RefreshCw, Eye, Trash2, Bot, User, Send } from 'lucide-react';
 import { useChatbot } from '../context/ChatbotContext';
+import { apiFetch, apiJson } from '../utils/api';
 
 export const AISettings: React.FC = () => {
     const { selectedChatbot } = useChatbot();
@@ -28,7 +29,7 @@ export const AISettings: React.FC = () => {
     useEffect(() => {
         const fetchAiSettings = async () => {
             try {
-                const res = await fetch('/api/ai/settings');
+                const res = await apiFetch('/api/ai/settings');
                 if (res.ok) {
                     const data = await res.json();
                     setAiConfig({
@@ -50,11 +51,7 @@ export const AISettings: React.FC = () => {
         setAiTesting(true);
         setAiTestResult(null);
         try {
-            const res = await fetch('/api/ai/test', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(aiConfig)
-            });
+            const res = await apiJson('/api/ai/test', 'POST', aiConfig);
             const data = await res.json();
             setAiTestResult({ success: data.success, message: data.message || data.error });
             setTimeout(() => setAiTestResult(null), 3000);
@@ -69,11 +66,7 @@ export const AISettings: React.FC = () => {
         setAiSaving(true);
         setAiSaveResult(null);
         try {
-            const res = await fetch('/api/ai/save', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(aiConfig)
-            });
+            const res = await apiJson('/api/ai/save', 'POST', aiConfig);
             const data = await res.json();
             setAiSaveResult({ success: data.success || res.ok, message: data.message || data.error || 'Saved successfully' });
             
@@ -103,14 +96,9 @@ export const AISettings: React.FC = () => {
         setChatLoading(true);
         
         try {
-            const res = await fetch('/api/chat', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
+            const res = await apiJson('/api/chat', 'POST', {
                     message: userMsg,
                     session_id: 'preview_session_123',
-                    // client_id is now handled automatically by the backend via session fallback
-                })
             });
             const data = await res.json();
             
